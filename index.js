@@ -1,15 +1,3 @@
-// /**
-//  * Cloud Function.
-//  *
-//  * @param {object} event The Cloud Functions event.
-//  * @param {function} callback The callback function.
-//  */
-// exports.helloWorld = function helloWorld (event, callback) {
-//   console.log(`My Cloud Function: ${event.data.message}`);
-//   var airlines = require('airline-codes');
-//   console.log(airlines.findWhere({ iata: 'WS' }).get('name'));
-//   callback();
-// };
 // Copyright 2017, Google, Inc.
 // Licensed under the Apache License, Version 2.0 (the 'License');
 // you may not use this file except in compliance with the License.
@@ -28,54 +16,99 @@
 
 
 const http = require('http');
+const airlines = require('airline-codes');
 
 const host = 'flightxml.flightaware.com';
 const wwoApiKey = '';
-const auth = 'Basic cHJpeWFua2F2Ojk1MzRjZGZmYmMzZTQwYmIxNTNjZmRhOGU1MTcxOTAyMTM0MzNmODM=';
-// const flightNumber = 'UA123'
+const auth = '<You API Key>';
 const today = new Date();
 const reportDate = (today.getMonth() + 1) + "/" + today.getDate() + "/" + today.getFullYear();
 
 exports.flightStatusWebhook = (req, res) => {
   // Get the city and date from the request
-  let flightNumber = req.body.result.parameters['flight-number']; // flight number is a required param
-  var date = req.body.result.parameters['date']; // flight date is a optional param
- // console.log(airlines.findWhere({ iata: 'WS' }).get('name'));
+  var userFlightInput = req.body.result.parameters['airlinenamesandnumber'];
 
-  // var today = new Date();
- //  var reportDate = today.getMonth() + "/" + today.getMonth() + "/" + today.getFullYear();
+  console.log("user input is " + userFlightInput);
+
+  var flightNumber = getAirlineCodeAndFlightNumber(userFlightInput);
+   // flight number is a required param
+  var date = req.body.result.parameters['date']; // flight date is a optional param
+
   console.log("date comign is " + reportDate);
 
 
-console.log("flight number is " + flightNumber);
-  //console.log("date  is " + date1);
-  // Get the date for the weather forecast (if present)
-  //let date = '';
-  // console.log("patasmters are " + req.param('date'));
-  //console.log("REQUEST BODY are " + req.body);
-  //console.log("pREQUEST BODY Param " + req.body.parameters);
-
-  //console.log("patasmters are " + req.body.result.parameters);
-  //console.log("patasmters are " + req.body.result.parameters);
-  // if (req.body.result.parameters['date']) {
-//     date = req.body.result.parameters['date'];
-//     console.log('Date: ' + date);
-//   }
-
-  // Call the weather API
-  callFlightAwareApi(flightNumber).then((output) => {
-    // Return the results of the weather API to API.AI
+  console.log("flight number is " + flightNumber);
+  
+  // Call the  API
+  if(flightNumber) {
+    callFlightAwareApi(flightNumber).then((output) => {
+      // Return the results of the weather API to API.AI
+      res.setHeader('Content-Type', 'application/json');
+  	res.setHeader('Authorization', auth);
+      res.send(JSON.stringify({ 'speech': output, 'displayText': output }));
+    }).catch((error) => {
+      // If there is an error let the user know
+      res.setHeader('Content-Type', 'application/json');
+  	//res.setHeader('Content-Type', 'application/json');
+      res.send(JSON.stringify({ 'speech': error, 'displayText': error }));
+    });
+  }
+  else {
     res.setHeader('Content-Type', 'application/json');
-	res.setHeader('Authorization', auth);
-    res.send(JSON.stringify({ 'speech': output, 'displayText': output }));
-  }).catch((error) => {
-    // If there is an error let the user know
-    res.setHeader('Content-Type', 'application/json');
-	//res.setHeader('Content-Type', 'application/json');
-    res.send(JSON.stringify({ 'speech': error, 'displayText': error }));
-  });
+    res.send(JSON.stringify({ 'speech': "Flight not mentioned correctly", 'displayText': "Flight not mentioned correctly" }));
+  }
+
 };
 
+function getAirlineCodeAndFlightNumber (userFlightInput) {
+  var flightDetails = userFlightInput;
+  console.log("entereed getAirlineCodeAndFlightNumber method  " + flightDetails);
+
+  var flightNumberForApi,checkForUserEnteredCode,checkForUserEnteredFullName
+  if(flightDetails.length > 0) {
+    console.log("made in if block");
+
+    var regex = /(\d+)/g;
+    var airlineName = flightDetails.split(/[0-9]/)[0];
+    var airlineNum = flightDetails.match(regex)[0];
+
+    console.log("arilien name hardcoded is "  + airlines.findWhere({ iata: "UA" }).get('name'));
+
+
+    console.log("airlineName" + airlineName);
+    airlineName = airlineName.trim();
+    console.log("airlineName after quotes" + airlineName);
+
+
+    try {
+      checkForUserEnteredCode = airlines.findWhere({ iata: airlineName }).get('name');
+      console.log("airline reported " + checkForUserEnteredCode);
+    }
+
+    catch(err) {
+      console.log("error with checkForUserEnteredCode is " + err);
+    }
+    try {
+      checkForUserEnteredFullName = airlines.findWhere({ name: airlineName }).get('iata');
+    }
+    catch(err) {
+      console.log("error with checkForUserEnteredFullName is " + err);
+    }
+
+
+    if(checkForUserEnteredCode) {
+      flightNumberForApi = airlineName + airlineNum;
+    }
+    else if(checkForUserEnteredFullName) {
+      flightNumberForApi = checkForUserEnteredFullName + airlineNum;
+    }
+
+    console.log("checkForUserEnteredCode and  checkForUserEnteredFullName   " + checkForUserEnteredCode + " , " + checkForUserEnteredFullName);
+    console.log("value for flight from function returned " + flightNumberForApi);
+
+  }
+  return flightNumberForApi;
+}
 function callFlightAwareApi (flightNumber) {
   return new Promise((resolve, reject) => {
     // Create the path for the HTTP request to get the weather
@@ -121,15 +154,6 @@ function callFlightAwareApi (flightNumber) {
 		{
 			output = "Sorry no data reported";
 		}
-
-        //${location['query']} are ${currentConditions} with a projected high of
-        //${forecast['maxtempC']}°C or ${forecast['maxtempF']}°F and a low of
-        //${forecast['mintempC']}°C or ${forecast['mintempF']}°F on
-        //${forecast['date']}.`;
-
-
-
-
 
 
         // Resolve the promise with the output text
