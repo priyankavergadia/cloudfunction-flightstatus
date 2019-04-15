@@ -7,6 +7,6 @@ Your use of this sample is subject to, and by using or downloading the sample fi
 https://api.ai/terms-and-privacy)
 
 # Disclaimer
-This code should not be used for any potential production workloads, and I think the readme needs a clearer disclaimer
+This code is a sample, should not be used for any potential production workloads.
 
 
